@@ -4,6 +4,11 @@ mod models;
 mod theme;
 mod ui;
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = db::Database::open()?;
     let tasks = db.load_tasks()?;
@@ -11,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1000.0, 680.0]),
+            .with_inner_size([860.0, 560.0]),
         ..Default::default()
     };
 
