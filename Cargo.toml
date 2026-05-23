@@ -5,11 +5,10 @@ edition = "2021"
 
 [dependencies]
 eframe = { version = "0.27", default-features = false, features = ["glow", "default_fonts"] }
-egui = "0.27"
+egui = { version = "0.27", default-features = false, features = ["default_fonts"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 dirs = "5"
 chrono = "0.4"
-mimalloc = "0.1"
 
 [profile.release]
 opt-level = "z"

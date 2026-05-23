@@ -4,11 +4,6 @@ mod models;
 mod theme;
 mod ui;
 
-use mimalloc::MiMalloc;
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = db::Database::open()?;
     let tasks = db.load_tasks()?;
