@@ -239,7 +239,7 @@ impl TaskPanel {
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui: &mut egui::Ui| {
                     // Edit
-                    if ui.button("✎").clicked() {
+                    if ui.button("E").clicked() {
                         if is_editing {
                             let trimmed = edit_buffer.trim().to_string();
                             if !trimmed.is_empty() {
@@ -296,7 +296,7 @@ impl TaskPanel {
                     }
 
                     // Delete
-                    if ui.button("✕").clicked() {
+                    if ui.button("D").clicked() {
                         *delete_confirm_id = Some(id);
                     }
                 });
@@ -326,7 +326,7 @@ impl TaskPanel {
                     .color(theme::MUTED),
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui: &mut egui::Ui| {
-                if ui.button("✕").clicked() {
+                if ui.button("D").clicked() {
                     *delete_confirm_id = Some(id);
                 }
             });

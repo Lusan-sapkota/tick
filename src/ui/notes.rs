@@ -1,4 +1,4 @@
-use egui::RichText;
+use egui::{Align2, Color32, RichText, Window};
 
 use crate::models::{Note, Task};
 use crate::theme;
@@ -12,6 +12,7 @@ pub struct NotesPanel {
     edit_title: String,
     edit_content: String,
     edit_task_id: Option<i64>,
+    delete_confirm_id: Option<i64>,
 }
 
 impl NotesPanel {
@@ -25,6 +26,7 @@ impl NotesPanel {
             edit_title: String::new(),
             edit_content: String::new(),
             edit_task_id: None,
+            delete_confirm_id: None,
         }
     }
 
@@ -58,6 +60,59 @@ impl NotesPanel {
         linked_task_id: Option<i64>,
         modified: &mut bool,
     ) {
+        //  Delete confirmation modal 
+        if let Some(del_id) = self.delete_confirm_id {
+            let note_title = notes
+                .iter()
+                .find(|n| n.id == del_id)
+                .map(|n| n.title.clone())
+                .unwrap_or_default();
+
+            let mut close = false;
+            let mut confirmed = false;
+
+            Window::new("Delete note?")
+                .id(egui::Id::new("confirm_delete_note"))
+                .collapsible(false)
+                .resizable(false)
+                .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+                .fixed_size([260.0, 90.0])
+                .show(ui.ctx(), |ui: &mut egui::Ui| {
+                    ui.label(format!("Delete \"{}\"?", note_title));
+                    ui.add_space(6.0);
+                    ui.horizontal(|ui: &mut egui::Ui| {
+                        if ui.button("Cancel").clicked() {
+                            close = true;
+                        }
+                        if ui
+                            .add_sized(
+                                [70.0, 24.0],
+                                egui::Button::new(RichText::new("Delete").color(Color32::WHITE))
+                                    .fill(theme::RED),
+                            )
+                            .clicked()
+                        {
+                            confirmed = true;
+                            close = true;
+                        }
+                    });
+                });
+
+            if close {
+                if confirmed {
+                    notes.retain(|n| n.id != del_id);
+                    if self.selected_note_id == Some(del_id) {
+                        self.selected_note_id = None;
+                        self.edit_title.clear();
+                        self.edit_content.clear();
+                        self.edit_task_id = None;
+                    }
+                    *modified = true;
+                }
+                self.delete_confirm_id = None;
+            }
+        }
+
         // Header with filter
         ui.horizontal(|ui: &mut egui::Ui| {
             ui.heading("Notes");
@@ -100,15 +155,10 @@ impl NotesPanel {
         let available = ui.available_size();
         let list_height = (available.y * 0.35).min(200.0).max(60.0);
 
-        // Filtered note list
         let visible: Vec<i64> = notes
             .iter()
             .filter(|n| {
-                if let Some(ft) = self.filter_task_id {
-                    n.task_id == Some(ft)
-                } else {
-                    true
-                }
+                if let Some(ft) = self.filter_task_id { n.task_id == Some(ft) } else { true }
             })
             .map(|n| n.id)
             .collect();
@@ -122,7 +172,6 @@ impl NotesPanel {
                 .auto_shrink([false, false])
                 .show(ui, |ui: &mut egui::Ui| {
                     let mut note_to_select: Option<i64> = None;
-                    let mut note_to_delete: Option<i64> = None;
 
                     for note in notes.iter().filter(|n| visible.contains(&n.id)) {
                         let is_selected = self.selected_note_id == Some(note.id);
@@ -137,7 +186,7 @@ impl NotesPanel {
                                     if let Some(tid) = note.task_id {
                                         if let Some(task) = tasks.iter().find(|t| t.id == tid) {
                                             ui.label(
-                                                RichText::new(format!("→ {}", task.title))
+                                                RichText::new(format!("-> {}", task.title))
                                                     .size(11.0)
                                                     .color(theme::ACCENT),
                                             );
@@ -145,8 +194,8 @@ impl NotesPanel {
                                     }
                                     let ts = &note.updated_at[..note.updated_at.len().min(16)];
                                     ui.label(RichText::new(ts).size(11.0).color(theme::MUTED));
-                                    if ui.button("✕").clicked() {
-                                        note_to_delete = Some(note.id);
+                                    if ui.button("D").clicked() {
+                                        self.delete_confirm_id = Some(note.id);
                                     }
                                 },
                             );
@@ -155,16 +204,6 @@ impl NotesPanel {
 
                     if let Some(id) = note_to_select {
                         self.selected_note_id = Some(id);
-                    }
-                    if let Some(id) = note_to_delete {
-                        notes.retain(|n| n.id != id);
-                        if self.selected_note_id == Some(id) {
-                            self.selected_note_id = None;
-                            self.edit_title.clear();
-                            self.edit_content.clear();
-                            self.edit_task_id = None;
-                        }
-                        *modified = true;
                     }
                 });
         }

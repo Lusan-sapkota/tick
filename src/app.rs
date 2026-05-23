@@ -4,6 +4,9 @@ use crate::db::Database;
 use crate::ui::notes::NotesPanel;
 use crate::ui::tasks::TaskPanel;
 
+// Keep the app struct and TickApp::new() exactly the same, only the update signature changed.
+
+
 pub struct TickApp {
     db: Database,
     tasks: Vec<crate::models::Task>,

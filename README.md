@@ -60,6 +60,21 @@ cargo build --release
 
 The binary will be at `target/release/tick`.
 
+## Resource Usage
+
+Release build, idle, Linux (NVIDIA):
+
+| Metric | Value |
+|--------|-------|
+| Binary size | **5.3 MB** (stripped, LTO, `opt-level = "z"`) |
+| RSS | ~106 MB |
+| PSS (proportional) | ~40 MB |
+| CPU (idle) | 0% |
+
+The RSS-PSS gap (~66 MB) is GPU driver shared libraries (LLVM, NVIDIA EGL/GLX) counted at full weight in RSS but shared across all OpenGL apps. The application itself uses roughly 40 MB of unique memory: ~5 MB binary text, ~3 MB heap, ~2 MB window framebuffer, and ~30 MB OpenGL context + font atlas.
+
+Optimizations applied: `accesskit` disabled, egui `multi_threaded` disabled, depth/stencil/MSAA buffers zeroed, `-C panic=abort`, `-C lto=fat`, `-C codegen-units=1`, `-C opt-level=z`.
+
 ## Dependencies
 
 | Crate | Purpose |
