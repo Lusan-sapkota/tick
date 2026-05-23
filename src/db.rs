@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result, params};
 use std::path::PathBuf;
 
-use crate::models::{Note, Task};
+use crate::models::{Note, Schedule, Task};
 
 pub struct Database {
     conn: Connection,
@@ -27,30 +27,42 @@ impl Database {
                 completed INTEGER NOT NULL DEFAULT 0,
                 priority INTEGER NOT NULL DEFAULT 0,
                 position INTEGER NOT NULL DEFAULT 0,
+                schedule INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL
             )",
             [],
         )?;
 
         conn.execute(
+            "ALTER TABLE tasks ADD COLUMN schedule INTEGER NOT NULL DEFAULT 0",
+            [],
+        ).ok();
+
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS notes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL DEFAULT 'Untitled',
                 content TEXT NOT NULL DEFAULT '',
+                task_id INTEGER,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )",
             [],
         )?;
 
+        conn.execute(
+            "ALTER TABLE notes ADD COLUMN task_id INTEGER",
+            [],
+        ).ok();
+
         Ok(Self { conn, db_path })
     }
 
-    // Tasks
+    //  Tasks 
 
     pub fn load_tasks(&self) -> Result<Vec<Task>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, title, completed, priority, position, created_at FROM tasks ORDER BY position, id"
+            "SELECT id, title, completed, priority, position, schedule, created_at FROM tasks ORDER BY completed, position, id"
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(Task {
@@ -59,7 +71,8 @@ impl Database {
                 completed: row.get::<_, i32>(2)? != 0,
                 priority: row.get(3)?,
                 position: row.get(4)?,
-                created_at: row.get(5)?,
+                schedule: Schedule::from_i32(row.get::<_, i32>(5)?),
+                created_at: row.get(6)?,
             })
         })?;
         rows.collect()
@@ -69,11 +82,9 @@ impl Database {
         let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
         let max_pos: i32 = self
             .conn
-            .query_row("SELECT COALESCE(MAX(position), -1) FROM tasks", [], |r| {
-                r.get(0)
-            })?;
+            .query_row("SELECT COALESCE(MAX(position), -1) FROM tasks", [], |r| r.get(0))?;
         self.conn.execute(
-            "INSERT INTO tasks (title, completed, priority, position, created_at) VALUES (?1, 0, 0, ?2, ?3)",
+            "INSERT INTO tasks (title, completed, priority, position, schedule, created_at) VALUES (?1, 0, 0, ?2, 0, ?3)",
             params![title, max_pos + 1, now],
         )?;
         let id = self.conn.last_insert_rowid();
@@ -83,6 +94,7 @@ impl Database {
             completed: false,
             priority: 0,
             position: max_pos + 1,
+            schedule: Schedule::Unscheduled,
             created_at: now,
         })
     }
@@ -90,8 +102,8 @@ impl Database {
     #[allow(dead_code)]
     pub fn update_task(&self, task: &Task) -> Result<()> {
         self.conn.execute(
-            "UPDATE tasks SET title=?1, completed=?2, priority=?3, position=?4 WHERE id=?5",
-            params![task.title, task.completed as i32, task.priority, task.position, task.id],
+            "UPDATE tasks SET title=?1, completed=?2, priority=?3, position=?4, schedule=?5 WHERE id=?6",
+            params![task.title, task.completed as i32, task.priority, task.position, task.schedule.to_i32(), task.id],
         )?;
         Ok(())
     }
@@ -102,35 +114,37 @@ impl Database {
         Ok(())
     }
 
-    // Notes
+    //  Notes 
 
     pub fn load_notes(&self) -> Result<Vec<Note>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, title, content, created_at, updated_at FROM notes ORDER BY updated_at DESC"
+            "SELECT id, title, content, task_id, created_at, updated_at FROM notes ORDER BY updated_at DESC"
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(Note {
                 id: row.get(0)?,
                 title: row.get(1)?,
                 content: row.get(2)?,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
+                task_id: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
             })
         })?;
         rows.collect()
     }
 
-    pub fn add_note(&self, title: &str) -> Result<Note> {
+    pub fn add_note(&self, title: &str, task_id: Option<i64>) -> Result<Note> {
         let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
         self.conn.execute(
-            "INSERT INTO notes (title, content, created_at, updated_at) VALUES (?1, '', ?2, ?2)",
-            params![title, now],
+            "INSERT INTO notes (title, content, task_id, created_at, updated_at) VALUES (?1, '', ?2, ?3, ?3)",
+            params![title, task_id, now],
         )?;
         let id = self.conn.last_insert_rowid();
         Ok(Note {
             id,
             title: title.to_string(),
             content: String::new(),
+            task_id,
             created_at: now.clone(),
             updated_at: now,
         })
@@ -140,8 +154,8 @@ impl Database {
     pub fn update_note(&self, note: &Note) -> Result<()> {
         let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
         self.conn.execute(
-            "UPDATE notes SET title=?1, content=?2, updated_at=?3 WHERE id=?4",
-            params![note.title, note.content, now, note.id],
+            "UPDATE notes SET title=?1, content=?2, task_id=?3, updated_at=?4 WHERE id=?5",
+            params![note.title, note.content, note.task_id, now, note.id],
         )?;
         Ok(())
     }
@@ -152,7 +166,16 @@ impl Database {
         Ok(())
     }
 
-    // Bulk-save all tasks and notes in a single transaction.
+    #[allow(dead_code)]
+    pub fn set_note_task(&self, note_id: i64, task_id: Option<i64>) -> Result<()> {
+        let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
+        self.conn.execute(
+            "UPDATE notes SET task_id=?1, updated_at=?2 WHERE id=?3",
+            params![task_id, now, note_id],
+        )?;
+        Ok(())
+    }
+
     pub fn sync_all(&self, tasks: &[Task], notes: &[Note]) -> Result<()> {
         let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
         self.conn.execute_batch("BEGIN")?;
@@ -160,16 +183,16 @@ impl Database {
         self.conn.execute("DELETE FROM tasks", [])?;
         for task in tasks {
             self.conn.execute(
-                "INSERT INTO tasks (id, title, completed, priority, position, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![task.id, task.title, task.completed as i32, task.priority, task.position, task.created_at],
+                "INSERT INTO tasks (id, title, completed, priority, position, schedule, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![task.id, task.title, task.completed as i32, task.priority, task.position, task.schedule.to_i32(), task.created_at],
             )?;
         }
 
         self.conn.execute("DELETE FROM notes", [])?;
         for note in notes {
             self.conn.execute(
-                "INSERT INTO notes (id, title, content, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![note.id, note.title, note.content, note.created_at, now],
+                "INSERT INTO notes (id, title, content, task_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![note.id, note.title, note.content, note.task_id, note.created_at, now],
             )?;
         }
 
