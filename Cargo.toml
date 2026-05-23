@@ -2,6 +2,23 @@
 name = "tick"
 version = "0.1.0"
 edition = "2021"
+description = "Native desktop task tracker and notes app"
+license = "MIT"
+repository = "https://github.com/Lusan-Sapkota/tick"
+readme = "README.md"
+
+[package.metadata.deb]
+maintainer = "Lusan Sapkota"
+copyright = "2026 Lusan Sapkota"
+license-file = ["LICENSE"]
+depends = "$auto"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/tick", "usr/bin/", "755"],
+    ["assets/tick.desktop", "usr/share/applications/", "644"],
+    ["assets/tick.svg", "usr/share/icons/hicolor/scalable/apps/", "644"],
+]
 
 [dependencies]
 eframe = { version = "0.27", default-features = false, features = ["glow", "default_fonts"] }
