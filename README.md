@@ -33,10 +33,27 @@ A native desktop task tracker and notes app built with Rust and egui. Manage tas
 Requires Rust 1.70+.
 
 ```bash
+# Binary only
 cargo build --release
+
+# Debian package (.deb)
+make deb
+
+# All formats (.deb + tarball)
+make all
 ```
 
-The binary will be at `target/release/tick`.
+Outputs (placed in `dist/`):
+| Format | Path | Size |
+|--------|------|------|
+| Binary | `target/release/tick` | 5.3 MB |
+| Debian | `dist/tick_0.1.0-1_amd64.deb` | 2.2 MB |
+| Tarball | `dist/tick-0.1.0-x86_64-linux.tar.gz` | 2.6 MB |
+
+Install the `.deb` with:
+```bash
+sudo dpkg -i dist/tick_0.1.0-1_amd64.deb
+```
 
 ## Resource Usage
 
