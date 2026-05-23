@@ -1,11 +1,9 @@
-use egui::{CentralPanel, Context, SidePanel, TopBottomPanel};
+use egui::{CentralPanel, Context, RichText, SidePanel, TopBottomPanel};
 
 use crate::db::Database;
+use crate::theme;
 use crate::ui::notes::NotesPanel;
 use crate::ui::tasks::TaskPanel;
-
-// Keep the app struct and TickApp::new() exactly the same, only the update signature changed.
-
 
 pub struct TickApp {
     db: Database,
@@ -56,21 +54,37 @@ impl eframe::App for TickApp {
         let mut modified = false;
 
         TopBottomPanel::top("top_bar").show(ctx, |ui: &mut egui::Ui| {
+            ui.add_space(2.0);
             ui.horizontal(|ui: &mut egui::Ui| {
-                ui.heading("Tick");
+                ui.label(RichText::new("Tick").size(17.0).color(theme::ACCENT));
                 ui.separator();
                 let done = self.tasks.iter().filter(|t| t.completed).count();
-                ui.label(format!(
-                    "Tasks {}/{}  ·  Notes {}",
-                    done,
-                    self.tasks.len(),
-                    self.notes.len()
-                ));
+                ui.label(
+                    RichText::new(format!(
+                        "{} tasks · {} done · {} notes",
+                        self.tasks.len(),
+                        done,
+                        self.notes.len()
+                    ))
+                    .color(theme::MUTED),
+                );
             });
+            ui.add_space(2.0);
         });
 
         TopBottomPanel::bottom("status_bar").show(ctx, |ui: &mut egui::Ui| {
-            ui.label(self.db.db_path.display().to_string());
+            ui.add_space(2.0);
+            ui.horizontal(|ui: &mut egui::Ui| {
+                ui.label(
+                    RichText::new(self.db.db_path.display().to_string())
+                        .size(11.0)
+                        .color(theme::MUTED),
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui: &mut egui::Ui| {
+                    ui.label(RichText::new("SQLite").size(11.0).color(theme::MUTED));
+                });
+            });
+            ui.add_space(2.0);
         });
 
         SidePanel::left("tasks_panel")
@@ -79,15 +93,18 @@ impl eframe::App for TickApp {
             .min_width(220.0)
             .max_width(600.0)
             .show(ctx, |ui: &mut egui::Ui| {
+                ui.add_space(4.0);
                 self.task_panel.show(ui, &mut self.tasks, &mut modified);
                 if let Some(title) = self.task_panel.pending_new_task.take() {
                     if let Ok(task) = self.db.add_task(&title) {
                         self.tasks.push(task);
                     }
                 }
+                ui.add_space(4.0);
             });
 
         CentralPanel::default().show(ctx, |ui: &mut egui::Ui| {
+            ui.add_space(4.0);
             self.notes_panel.show(ui, &mut self.notes, &self.tasks, self.task_panel.selected_task_id, &mut modified);
             if let Some(title) = self.notes_panel.pending_new_note.take() {
                 let tid = self.notes_panel.pending_note_task.take();
@@ -95,6 +112,7 @@ impl eframe::App for TickApp {
                     self.notes.push(note);
                 }
             }
+            ui.add_space(4.0);
         });
 
         if modified {

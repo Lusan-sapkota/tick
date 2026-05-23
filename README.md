@@ -26,9 +26,7 @@ A native desktop task tracker and notes app built with Rust and egui. Manage tas
 
 ## Screenshot
 
-```
-![screenshot](./images/image.png)
-```
+![Tick Screenshot](images/image.png)
 
 ## Build
 

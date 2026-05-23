@@ -81,17 +81,18 @@ impl TaskPanel {
             }
         }
 
-        ui.heading("Tasks");
+        ui.label(RichText::new("Tasks").size(16.0).color(theme::ACCENT));
+        ui.add_space(4.0);
 
         // Add task input
         ui.horizontal(|ui: &mut egui::Ui| {
             ui.add_sized(
-                [ui.available_width() - 50.0, 22.0],
+                [ui.available_width() - 54.0, 22.0],
                 egui::TextEdit::singleline(&mut self.new_task_input)
                     .hint_text("New task..."),
             );
             let enter = ui.input(|i: &egui::InputState| i.key_pressed(egui::Key::Enter));
-            if ui.button("Add").clicked() || enter {
+            if ui.button(RichText::new("Add").color(theme::ACCENT)).clicked() || enter {
                 let text = self.new_task_input.trim().to_string();
                 if !text.is_empty() {
                     self.pending_new_task = Some(text);
@@ -123,7 +124,15 @@ impl TaskPanel {
             }
         }
 
-        if groups.is_empty() {
+        let completed_ids: Vec<i64> = tasks
+            .iter()
+            .filter(|t| t.completed)
+            .map(|t| t.id)
+            .collect();
+
+        let has_content = !groups.is_empty() || !completed_ids.is_empty();
+
+        if !has_content {
             ui.add_space(8.0);
             ui.label(RichText::new("No tasks").color(theme::MUTED));
         } else {
@@ -131,12 +140,10 @@ impl TaskPanel {
                 .id_source("task_list")
                 .auto_shrink([false, false])
                 .show(ui, |ui: &mut egui::Ui| {
+                    // Active groups
                     for (label, ids) in &groups {
                         Self::render_group(
-                            ui,
-                            label,
-                            ids,
-                            tasks,
+                            ui, label, ids, tasks,
                             &mut self.selected_task_id,
                             &mut self.editing_id,
                             &mut self.edit_buffer,
@@ -145,35 +152,33 @@ impl TaskPanel {
                         );
                         ui.add_space(4.0);
                     }
+
+                    // Recent section inside scroll area so it doesn't get cut
+                    if !completed_ids.is_empty() {
+                        ui.add_space(4.0);
+                        ui.separator();
+
+                        let header = if self.recent_expanded {
+                            format!("▾ Recent ({})", completed_ids.len())
+                        } else {
+                            format!("▸ Recent ({})", completed_ids.len())
+                        };
+
+                        if ui.selectable_label(false, header).clicked() {
+                            self.recent_expanded = !self.recent_expanded;
+                        }
+
+                        if self.recent_expanded {
+                            ui.add_space(2.0);
+                            for id in &completed_ids {
+                                Self::render_completed_item(
+                                    ui, *id, tasks,
+                                    &mut self.delete_confirm_id, modified,
+                                );
+                            }
+                        }
+                    }
                 });
-        }
-
-        //  Recent 
-        let completed_ids: Vec<i64> = tasks
-            .iter()
-            .filter(|t| t.completed)
-            .map(|t| t.id)
-            .collect();
-
-        if !completed_ids.is_empty() {
-            ui.add_space(6.0);
-            ui.separator();
-
-            let header = if self.recent_expanded {
-                format!("▾ Recent ({})", completed_ids.len())
-            } else {
-                format!("▸ Recent ({})", completed_ids.len())
-            };
-
-            if ui.selectable_label(false, header).clicked() {
-                self.recent_expanded = !self.recent_expanded;
-            }
-
-            if self.recent_expanded {
-                for id in &completed_ids {
-                    Self::render_completed_item(ui, *id, tasks, &mut self.delete_confirm_id, modified);
-                }
-            }
         }
     }
 
@@ -189,6 +194,7 @@ impl TaskPanel {
         delete_confirm_id: &mut Option<i64>,
         modified: &mut bool,
     ) {
+        ui.add_space(2.0);
         ui.label(RichText::new(label).size(12.0).color(theme::MUTED));
 
         for &id in ids {
