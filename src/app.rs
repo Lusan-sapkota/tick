@@ -1,7 +1,8 @@
-use egui::{Context, TopBottomPanel, SidePanel, CentralPanel};
+use egui::{CentralPanel, Context, RichText, SidePanel, TopBottomPanel};
 
 use crate::db::Database;
 use crate::models::{Note, Task};
+use crate::theme;
 use crate::ui::notes::NotesPanel;
 use crate::ui::tasks::TaskPanel;
 
@@ -49,54 +50,103 @@ impl eframe::App for TickApp {
         let time = ctx.input(|i| i.time);
         let mut modified = false;
 
-        // Top bar
+        // ── Top bar ──
         TopBottomPanel::top("top_bar").show(ctx, |ui: &mut egui::Ui| {
-            ui.horizontal(|ui: &mut egui::Ui| {
-                ui.heading("Tick");
-                ui.separator();
+            let bar = egui::Frame::default()
+                .fill(theme::BACKGROUND)
+                .inner_margin(egui::Margin::symmetric(14.0, 6.0));
+
+            bar.show(ui, |ui: &mut egui::Ui| {
+                ui.horizontal(|ui: &mut egui::Ui| {
+                    ui.label(
+                        RichText::new("Tick")
+                            .size(18.0)
+                            .color(theme::TEXT_PRIMARY)
+                            .strong(),
+                    );
+                    ui.label(
+                        RichText::new("Tasks & Notes")
+                            .size(12.0)
+                            .color(theme::TEXT_MUTED),
+                    );
+                });
             });
         });
 
-        // Status bar
+        // ── Status bar ──
         TopBottomPanel::bottom("status_bar").show(ctx, |ui: &mut egui::Ui| {
-            ui.horizontal(|ui: &mut egui::Ui| {
-                let tasks_done = self.tasks.iter().filter(|t| t.completed).count();
-                ui.label(format!(
-                    "Tasks: {}/{} done | Notes: {} | {}",
-                    tasks_done,
-                    self.tasks.len(),
-                    self.notes.len(),
-                    self.db.db_path.display(),
-                ));
+            let bar = egui::Frame::default()
+                .fill(theme::BACKGROUND)
+                .inner_margin(egui::Margin::symmetric(14.0, 4.0));
+
+            bar.show(ui, |ui: &mut egui::Ui| {
+                ui.horizontal(|ui: &mut egui::Ui| {
+                    let tasks_done = self.tasks.iter().filter(|t| t.completed).count();
+                    let tasks_total = self.tasks.len();
+                    ui.label(
+                        RichText::new(format!("Tasks {}/{}", tasks_done, tasks_total))
+                            .size(11.0)
+                            .color(theme::TEXT_MUTED),
+                    );
+
+                    ui.separator();
+
+                    ui.label(
+                        RichText::new(format!("Notes {}", self.notes.len()))
+                            .size(11.0)
+                            .color(theme::TEXT_MUTED),
+                    );
+
+                    ui.with_layout(
+                        egui::Layout::right_to_left(egui::Align::Center),
+                        |ui: &mut egui::Ui| {
+                            ui.label(
+                                RichText::new(self.db.db_path.display().to_string())
+                                    .size(11.0)
+                                    .color(theme::TEXT_MUTED),
+                            );
+                        },
+                    );
+                });
             });
         });
 
-        // Left panel: Tasks
+        // ── Left panel: Tasks ──
         SidePanel::left("tasks_panel")
             .resizable(true)
             .default_width(320.0)
-            .min_width(200.0)
+            .min_width(240.0)
             .show(ctx, |ui: &mut egui::Ui| {
-                self.task_panel.show(ui, &mut self.tasks, &mut modified);
+                let panel = egui::Frame::default()
+                    .fill(theme::BACKGROUND)
+                    .inner_margin(egui::Margin::symmetric(12.0, 10.0));
 
-                // Handle pending new task
-                if let Some(title) = self.task_panel.pending_new_task.take() {
-                    if let Ok(task) = self.db.add_task(&title) {
-                        self.tasks.push(task);
+                panel.show(ui, |ui: &mut egui::Ui| {
+                    self.task_panel.show(ui, &mut self.tasks, &mut modified);
+
+                    if let Some(title) = self.task_panel.pending_new_task.take() {
+                        if let Ok(task) = self.db.add_task(&title) {
+                            self.tasks.push(task);
+                        }
+                    }
+                });
+            });
+
+        // ── Central panel: Notes ──
+        CentralPanel::default().show(ctx, |ui: &mut egui::Ui| {
+            let panel = egui::Frame::default()
+                .fill(theme::BACKGROUND)
+                .inner_margin(egui::Margin::symmetric(12.0, 10.0));
+
+            panel.show(ui, |ui: &mut egui::Ui| {
+                self.notes_panel.show(ui, &mut self.notes, &mut modified);
+
+                if let Some(title) = self.notes_panel.pending_new_note.take() {
+                    if let Ok(note) = self.db.add_note(&title) {
+                        self.notes.push(note);
                     }
                 }
             });
-
-        // Central panel: Notes
-        CentralPanel::default().show(ctx, |ui: &mut egui::Ui| {
-            self.notes_panel.show(ui, &mut self.notes, &mut modified);
-
-            // Handle pending new note
-            if let Some(title) = self.notes_panel.pending_new_note.take() {
-                if let Ok(note) = self.db.add_note(&title) {
-                    self.notes.push(note);
-                }
-            }
         });
 
         // Apply note edits to the notes vec

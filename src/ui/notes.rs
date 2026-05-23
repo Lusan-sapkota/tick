@@ -1,4 +1,7 @@
+use egui::{RichText, Rounding, Widget};
+
 use crate::models::Note;
+use crate::theme;
 
 pub struct NotesPanel {
     pub selected_note_id: Option<i64>,
@@ -19,7 +22,6 @@ impl NotesPanel {
         }
     }
 
-    /// Sync the editing buffers with the currently selected note.
     pub fn sync_selected(&mut self, notes: &[Note]) {
         if let Some(id) = self.selected_note_id {
             if let Some(note) = notes.iter().find(|n| n.id == id) {
@@ -33,31 +35,62 @@ impl NotesPanel {
         }
     }
 
-    /// Render the notes panel. Returns `true` if notes were modified.
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,
         notes: &mut Vec<Note>,
         modified: &mut bool,
     ) {
-        ui.heading("Notes");
-        ui.separator();
-
-        // New note button
+        // Header row
         ui.horizontal(|ui: &mut egui::Ui| {
-            ui.label("Title:");
-            ui.text_edit_singleline(&mut self.new_note_title);
-            if ui.button("+ Note").clicked() && !self.new_note_title.trim().is_empty() {
-                self.pending_new_note = Some(self.new_note_title.trim().to_string());
-                *modified = true;
-            }
+            ui.heading(
+                RichText::new("Notes")
+                    .size(16.0)
+                    .color(theme::TEXT_PRIMARY),
+            );
+            ui.with_layout(
+                egui::Layout::right_to_left(egui::Align::Center),
+                |ui: &mut egui::Ui| {
+                    ui.label(
+                        RichText::new(format!("{}", notes.len()))
+                            .size(12.0)
+                            .color(theme::TEXT_SECONDARY),
+                    );
+                },
+            );
         });
 
-        ui.add_space(4.0);
+        ui.add_space(6.0);
 
-        // Split: note list on top, editor on bottom
+        // New note bar
+        let bar_frame = egui::Frame::default()
+            .fill(theme::SURFACE)
+            .rounding(Rounding::same(8.0))
+            .inner_margin(egui::Margin::symmetric(8.0, 4.0));
+
+        bar_frame.show(ui, |ui: &mut egui::Ui| {
+            ui.horizontal(|ui: &mut egui::Ui| {
+                ui.add_sized(
+                    [ui.available_width() - 90.0, 28.0],
+                    egui::TextEdit::singleline(&mut self.new_note_title)
+                        .hint_text("Note title...")
+                        .text_color(theme::TEXT_PRIMARY),
+                );
+                if theme::accent_button("+ New")
+                    .ui(ui)
+                    .clicked()
+                    && !self.new_note_title.trim().is_empty()
+                {
+                    self.pending_new_note = Some(self.new_note_title.trim().to_string());
+                    *modified = true;
+                }
+            });
+        });
+
+        ui.add_space(8.0);
+
         let available = ui.available_size();
-        let list_height = (available.y * 0.4).min(200.0);
+        let list_height = (available.y * 0.4).min(220.0);
 
         // Note list
         egui::ScrollArea::vertical()
@@ -69,32 +102,54 @@ impl NotesPanel {
 
                 for note in notes.iter() {
                     let is_selected = self.selected_note_id == Some(note.id);
+
                     let bg = if is_selected {
-                        Some(egui::Color32::from_rgb(55, 55, 80))
+                        theme::SURFACE_ACTIVE
                     } else {
-                        None
+                        theme::SURFACE
                     };
 
-                    let frame = egui::Frame::default()
-                        .fill(bg.unwrap_or(egui::Color32::TRANSPARENT))
-                        .inner_margin(egui::vec2(4.0, 2.0));
+                    let card = egui::Frame::default()
+                        .fill(bg)
+                        .rounding(Rounding::same(6.0))
+                        .inner_margin(egui::Margin::symmetric(10.0, 6.0))
+                        .outer_margin(egui::Margin::symmetric(0.0, 2.0));
 
-                    frame.show(ui, |ui: &mut egui::Ui| {
+                    card.show(ui, |ui: &mut egui::Ui| {
                         ui.horizontal(|ui: &mut egui::Ui| {
-                            let resp = ui.selectable_label(is_selected, &note.title);
-                            if resp.clicked() {
+                            let sel = ui.selectable_label(
+                                is_selected,
+                                RichText::new(&note.title)
+                                    .size(13.0)
+                                    .color(theme::TEXT_PRIMARY),
+                            );
+                            if sel.clicked() {
                                 note_to_select = Some(note.id);
                             }
-                            let ts = &note.updated_at[..note.updated_at.len().min(16)];
-                            ui.label(
-                                egui::RichText::new(ts)
-                                    .small()
-                                    .color(egui::Color32::from_rgb(140, 140, 140)),
-                            );
+
                             ui.with_layout(
                                 egui::Layout::right_to_left(egui::Align::Center),
                                 |ui: &mut egui::Ui| {
-                                    if ui.button("✕").clicked() {
+                                    let ts = &note.updated_at[..note.updated_at.len().min(16)];
+                                    ui.label(
+                                        RichText::new(ts)
+                                            .size(11.0)
+                                            .color(theme::TEXT_MUTED),
+                                    );
+
+                                    ui.add_space(8.0);
+
+                                    let del = ui.add_sized(
+                                        [22.0, 22.0],
+                                        egui::Button::new(
+                                            RichText::new("✕")
+                                                .size(11.0)
+                                                .color(theme::TEXT_MUTED),
+                                        )
+                                        .fill(egui::Color32::TRANSPARENT)
+                                        .rounding(Rounding::same(4.0)),
+                                    );
+                                    if del.clicked() {
                                         note_to_delete = Some(note.id);
                                     }
                                 },
@@ -117,45 +172,71 @@ impl NotesPanel {
                 }
             });
 
-        ui.add_space(4.0);
+        ui.add_space(8.0);
 
         // Editor
         if self.selected_note_id.is_some() {
-            ui.separator();
-            ui.horizontal(|ui: &mut egui::Ui| {
-                ui.label("Title:");
-                if ui
-                    .text_edit_singleline(&mut self.edit_title)
-                    .changed()
-                {
-                    *modified = true;
-                }
-            });
+            let editor_frame = egui::Frame::default()
+                .fill(theme::SURFACE)
+                .rounding(Rounding::same(8.0))
+                .inner_margin(egui::Margin::symmetric(10.0, 8.0));
 
-            ui.label("Content:");
-            let available = ui.available_size();
-            let editor_height = (available.y - 20.0).max(100.0);
-            egui::ScrollArea::vertical()
-                .max_height(editor_height)
-                .auto_shrink([false, false])
-                .show(ui, |ui: &mut egui::Ui| {
-                    let text_edit = egui::TextEdit::multiline(&mut self.edit_content)
-                        .desired_width(f32::INFINITY)
-                        .desired_rows(6)
-                        .hint_text("Start typing your note here...");
-                    if ui.add(text_edit).changed() {
+            editor_frame.show(ui, |ui: &mut egui::Ui| {
+                ui.horizontal(|ui: &mut egui::Ui| {
+                    ui.label(
+                        RichText::new("Title")
+                            .size(12.0)
+                            .color(theme::TEXT_SECONDARY),
+                    );
+                    if ui
+                        .add_sized(
+                            [ui.available_width(), 24.0],
+                            egui::TextEdit::singleline(&mut self.edit_title)
+                                .text_color(theme::TEXT_PRIMARY),
+                        )
+                        .changed()
+                    {
                         *modified = true;
                     }
                 });
+
+                ui.add_space(6.0);
+
+                let available = ui.available_size();
+                let editor_height = (available.y - 10.0).max(100.0);
+
+                egui::ScrollArea::vertical()
+                    .max_height(editor_height)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui: &mut egui::Ui| {
+                        let text_edit = egui::TextEdit::multiline(&mut self.edit_content)
+                            .desired_width(f32::INFINITY)
+                            .desired_rows(8)
+                            .hint_text("Start writing...")
+                            .text_color(theme::TEXT_PRIMARY);
+                        if ui.add(text_edit).changed() {
+                            *modified = true;
+                        }
+                    });
+            });
         } else {
-            ui.label(
-                egui::RichText::new("Select a note to edit")
-                    .color(egui::Color32::from_rgb(140, 140, 140)),
-            );
+            // Empty state
+            ui.vertical_centered(|ui: &mut egui::Ui| {
+                ui.add_space(40.0);
+                ui.label(
+                    RichText::new("No note selected")
+                        .size(14.0)
+                        .color(theme::TEXT_MUTED),
+                );
+                ui.label(
+                    RichText::new("Create a new note or select one from the list")
+                        .size(12.0)
+                        .color(theme::TEXT_MUTED),
+                );
+            });
         }
     }
 
-    /// Apply edits back into the selected note in the vector.
     pub fn apply_edits(&self, notes: &mut Vec<Note>) {
         if let Some(id) = self.selected_note_id {
             if let Some(note) = notes.iter_mut().find(|n| n.id == id) {

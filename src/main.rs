@@ -1,6 +1,7 @@
 mod app;
 mod db;
 mod models;
+mod theme;
 mod ui;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -17,7 +18,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     eframe::run_native(
         "Tick",
         options,
-        Box::new(|_cc| Box::new(app::TickApp::new(db, tasks, notes))),
+        Box::new(|cc| {
+            theme::apply_theme(&cc.egui_ctx);
+            Box::new(app::TickApp::new(db, tasks, notes))
+        }),
     )?;
 
     Ok(())

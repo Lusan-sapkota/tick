@@ -87,6 +87,7 @@ impl Database {
         })
     }
 
+    #[allow(dead_code)]
     pub fn update_task(&self, task: &Task) -> Result<()> {
         self.conn.execute(
             "UPDATE tasks SET title=?1, completed=?2, priority=?3, position=?4 WHERE id=?5",
@@ -95,6 +96,7 @@ impl Database {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn delete_task(&self, id: i64) -> Result<()> {
         self.conn.execute("DELETE FROM tasks WHERE id=?1", params![id])?;
         Ok(())
@@ -134,6 +136,7 @@ impl Database {
         })
     }
 
+    #[allow(dead_code)]
     pub fn update_note(&self, note: &Note) -> Result<()> {
         let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
         self.conn.execute(
@@ -143,12 +146,13 @@ impl Database {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn delete_note(&self, id: i64) -> Result<()> {
         self.conn.execute("DELETE FROM notes WHERE id=?1", params![id])?;
         Ok(())
     }
 
-    /// Bulk-save all tasks and notes in a single transaction.
+    // Bulk-save all tasks and notes in a single transaction.
     pub fn sync_all(&self, tasks: &[Task], notes: &[Note]) -> Result<()> {
         let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
         self.conn.execute_batch("BEGIN")?;
