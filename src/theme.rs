@@ -9,7 +9,7 @@ pub struct Palette {
 }
 
 pub const PALETTE: Palette = Palette {
-    accent: egui::Color32::from_rgb(99, 102, 241),
+    accent: egui::Color32::from_rgb(59, 130, 246),
     green: egui::Color32::from_rgb(34, 197, 94),
     yellow: egui::Color32::from_rgb(234, 179, 8),
     red: egui::Color32::from_rgb(239, 68, 68),
@@ -18,7 +18,7 @@ pub const PALETTE: Palette = Palette {
 // Semantic surface colors
 pub const SURFACE: egui::Color32 = egui::Color32::from_rgb(26, 29, 39);
 pub const SURFACE_HOVER: egui::Color32 = egui::Color32::from_rgb(34, 38, 47);
-pub const SURFACE_ACTIVE: egui::Color32 = egui::Color32::from_rgb(45, 49, 108);
+pub const SURFACE_ACTIVE: egui::Color32 = egui::Color32::from_rgb(30, 40, 80);
 pub const BACKGROUND: egui::Color32 = egui::Color32::from_rgb(15, 17, 23);
 pub const TEXT_PRIMARY: egui::Color32 = egui::Color32::from_rgb(225, 228, 234);
 pub const TEXT_SECONDARY: egui::Color32 = egui::Color32::from_rgb(139, 143, 168);
@@ -75,7 +75,7 @@ pub fn apply_theme(ctx: &egui::Context) {
     v.widgets.open.weak_bg_fill = SURFACE;
 
     // Selection
-    v.selection.bg_fill = egui::Color32::from_rgba_premultiplied(99, 102, 241, 60);
+    v.selection.bg_fill = egui::Color32::from_rgba_premultiplied(59, 130, 246, 60);
     v.selection.stroke.color = PALETTE.accent;
 
     // Hyperlinks

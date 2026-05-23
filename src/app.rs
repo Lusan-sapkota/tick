@@ -1,10 +1,12 @@
-use egui::{CentralPanel, Context, RichText, SidePanel, TopBottomPanel};
+use egui::{CentralPanel, Context, RichText, TopBottomPanel};
 
 use crate::db::Database;
 use crate::models::{Note, Task};
 use crate::theme;
 use crate::ui::notes::NotesPanel;
 use crate::ui::tasks::TaskPanel;
+
+const MIN_PANEL: f32 = 220.0;
 
 pub struct TickApp {
     db: Database,
@@ -15,6 +17,7 @@ pub struct TickApp {
     dirty: bool,
     last_save_time: f64,
     save_interval: f64,
+    split_ratio: f32,
 }
 
 impl TickApp {
@@ -31,6 +34,7 @@ impl TickApp {
             dirty: false,
             last_save_time: 0.0,
             save_interval: 0.5,
+            split_ratio: 0.38,
         }
     }
 
@@ -111,41 +115,91 @@ impl eframe::App for TickApp {
             });
         });
 
-        // ── Left panel: Tasks ──
-        SidePanel::left("tasks_panel")
-            .resizable(true)
-            .default_width(320.0)
-            .min_width(240.0)
-            .show(ctx, |ui: &mut egui::Ui| {
-                let panel = egui::Frame::default()
-                    .fill(theme::BACKGROUND)
-                    .inner_margin(egui::Margin::symmetric(12.0, 10.0));
-
-                panel.show(ui, |ui: &mut egui::Ui| {
-                    self.task_panel.show(ui, &mut self.tasks, &mut modified);
-
-                    if let Some(title) = self.task_panel.pending_new_task.take() {
-                        if let Ok(task) = self.db.add_task(&title) {
-                            self.tasks.push(task);
-                        }
-                    }
-                });
-            });
-
-        // ── Central panel: Notes ──
+        // ── Content: manual horizontal split ──
         CentralPanel::default().show(ctx, |ui: &mut egui::Ui| {
-            let panel = egui::Frame::default()
+            let frame = egui::Frame::default()
                 .fill(theme::BACKGROUND)
-                .inner_margin(egui::Margin::symmetric(12.0, 10.0));
+                .inner_margin(egui::Margin::symmetric(0.0, 0.0));
 
-            panel.show(ui, |ui: &mut egui::Ui| {
-                self.notes_panel.show(ui, &mut self.notes, &mut modified);
+            frame.show(ui, |ui: &mut egui::Ui| {
+                let total_w = ui.available_width();
+                let grip_w = 6.0;
+                let left_w = (total_w * self.split_ratio)
+                    .max(MIN_PANEL)
+                    .min(total_w - MIN_PANEL - grip_w);
+                let right_w = total_w - left_w - grip_w;
 
-                if let Some(title) = self.notes_panel.pending_new_note.take() {
-                    if let Ok(note) = self.db.add_note(&title) {
-                        self.notes.push(note);
+                ui.horizontal(|ui: &mut egui::Ui| {
+                    // ── Tasks panel ──
+                    let task_frame = egui::Frame::default()
+                        .fill(theme::BACKGROUND)
+                        .inner_margin(egui::Margin::symmetric(12.0, 10.0));
+
+                    ui.allocate_ui(
+                        egui::Vec2::new(left_w, ui.available_height()),
+                        |ui| {
+                            task_frame.show(ui, |ui: &mut egui::Ui| {
+                                self.task_panel.show(ui, &mut self.tasks, &mut modified);
+
+                                if let Some(title) = self.task_panel.pending_new_task.take() {
+                                    if let Ok(task) = self.db.add_task(&title) {
+                                        self.tasks.push(task);
+                                    }
+                                }
+                            });
+                        },
+                    );
+
+                    // ── Drag handle ──
+                    let grip_resp = ui.allocate_ui(
+                        egui::Vec2::new(grip_w, ui.available_height()),
+                        |ui: &mut egui::Ui| {
+                            ui.add_space(ui.available_height() * 0.5);
+                        },
+                    );
+                    let grip_rect = grip_resp.response.rect;
+                    let painter = ui.painter().clone();
+                    let cx = grip_rect.center().x;
+                    painter.line_segment(
+                        [
+                            egui::pos2(cx, grip_rect.top() + 20.0),
+                            egui::pos2(cx, grip_rect.bottom() - 20.0),
+                        ],
+                        egui::Stroke::new(1.5, theme::SURFACE_HOVER),
+                    );
+                    // Drag interaction
+                    let resp = ui.interact(grip_rect, ui.next_auto_id(), egui::Sense::drag());
+                    if resp.dragged() {
+                        let delta = resp.drag_delta();
+                        let new_left = left_w + delta.x;
+                        let clamped = new_left.max(MIN_PANEL).min(total_w - MIN_PANEL - grip_w);
+                        self.split_ratio = clamped / total_w;
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
                     }
-                }
+                    if resp.hovered() || resp.dragged() {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+                    }
+
+                    // ── Notes panel ──
+                    let note_frame = egui::Frame::default()
+                        .fill(theme::BACKGROUND)
+                        .inner_margin(egui::Margin::symmetric(12.0, 10.0));
+
+                    ui.allocate_ui(
+                        egui::Vec2::new(right_w, ui.available_height()),
+                        |ui| {
+                            note_frame.show(ui, |ui: &mut egui::Ui| {
+                                self.notes_panel.show(ui, &mut self.notes, &mut modified);
+
+                                if let Some(title) = self.notes_panel.pending_new_note.take() {
+                                    if let Ok(note) = self.db.add_note(&title) {
+                                        self.notes.push(note);
+                                    }
+                                }
+                            });
+                        },
+                    );
+                });
             });
         });
 
