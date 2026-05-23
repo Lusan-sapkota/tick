@@ -27,27 +27,7 @@ A native desktop task tracker and notes app built with Rust and egui. Manage tas
 ## Screenshot
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  Tick │ Tasks & Notes                                     │
-├──────────────────────────┬───────────────────────────────┤
-│  Tasks  3 active · 1 done│  Notes  3 total               │
-│                          │                               │
-│  ┌────────────────────┐  │  ┌── + New ──────────────┐   │
-│  │ New task...    Add │  │  │ Note title...   + New  │   │
-│  └────────────────────┘  │  └────────────────────────┘   │
-│                          │                               │
-│  TODAY                   │  → Design Doc     2026-05-23  │
-│  ☐ Design landing page   │  → API Spec       2026-05-22  │
-│  ☑ Review PR       ✕    │  Meeting Notes    2026-05-21  │
-│                          │                               │
-│  BACKLOG                 │  ┌────────────────────────┐  │
-│  ☐ Setup CI pipeline     │  │ Title  [Design Doc  ▾] │  │
-│                          │  │                        │  │
-│  ▸ Recent (1)            │  │ Start writing...       │  │
-│                          │  └────────────────────────┘  │
-├──────────────────────────┴───────────────────────────────┤
-│  Tasks 3/4 done · Notes 3      ~/.local/share/tick/...  │
-└──────────────────────────────────────────────────────────┘
+![screenshot](./images/image.png)
 ```
 
 ## Build
